@@ -163,7 +163,7 @@ export default function PasskeySignup() {
               {`{
   "passkey": {
     "authenticatorName": "${passkeyData.passkey.authenticatorName}",
-    "challenge": "${passkeyData.passkey.challenge.substring(0, 32)}...",
+    "challenge": "${passkeyData.passkey.challenge}",
     "attestation": {
       "credentialId": "${passkeyData.passkey.attestation.credentialId}",
       "clientDataJson": "${passkeyData.passkey.attestation.clientDataJson}",
