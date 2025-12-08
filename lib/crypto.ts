@@ -15,9 +15,9 @@ export const toBase64Url = (str: string): string => {
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
-// Base64URL encoding for ArrayBuffer
-export const toBase64UrlBytes = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
+// Base64URL encoding for ArrayBuffer or Uint8Array
+export const toBase64UrlBytes = (buffer: ArrayBuffer | Uint8Array): string => {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
