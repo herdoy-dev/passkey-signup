@@ -14,32 +14,26 @@ interface PasskeyData {
   };
 }
 
-interface Config {
-  apiUrl: string;
-  apiToken: string;
-  entityId: string;
-  apiPrivateKey: string;
-  apiPublicKey: string;
-}
+type Step = "create" | "prepare" | "sign" | "submit" | "complete";
 
-type Step = "config" | "create" | "prepare" | "sign" | "submit" | "complete";
+// Environment variables
+const config = {
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || "",
+  apiToken: process.env.NEXT_PUBLIC_API_TOKEN || "",
+  entityId: process.env.NEXT_PUBLIC_ENTITY_ID || "",
+  apiPrivateKey: process.env.NEXT_PUBLIC_API_PRIVATE_KEY || "",
+  apiPublicKey: process.env.NEXT_PUBLIC_API_PUBLIC_KEY || "",
+};
 
 export default function PasskeyRegistration() {
-  const [step, setStep] = useState<Step>("config");
+  const [step, setStep] = useState<Step>("create");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Configuration
-  const [config, setConfig] = useState<Config>({
-    apiUrl: "",
-    apiToken: "",
-    entityId: "",
-    apiPrivateKey: "",
-    apiPublicKey: "",
-  });
-
   // Step data
-  const [passkeyData, setPasskeyData] = useState<{ passkey: PasskeyData } | null>(null);
+  const [passkeyData, setPasskeyData] = useState<{
+    passkey: PasskeyData;
+  } | null>(null);
   const [prepareResponse, setPrepareResponse] = useState<{
     payloadId: string;
     payloadToSign: string;
@@ -62,7 +56,7 @@ export default function PasskeyRegistration() {
     try {
       // Generate random challenge bytes
       const challengeBytes = crypto.getRandomValues(new Uint8Array(32));
-      
+
       // Convert to base64url for sending to API (this matches what will be in clientDataJSON)
       const challengeBase64Url = toBase64UrlBytes(challengeBytes);
 
@@ -102,7 +96,10 @@ export default function PasskeyRegistration() {
       const clientData = JSON.parse(clientDataText);
       console.log("📝 clientDataJSON.challenge:", clientData.challenge);
       console.log("📝 Our challenge (base64url):", challengeBase64Url);
-      console.log("📝 Challenge match:", clientData.challenge === challengeBase64Url);
+      console.log(
+        "📝 Challenge match:",
+        clientData.challenge === challengeBase64Url
+      );
 
       // Build passkey data - send challenge in base64url format (matches clientDataJSON)
       const data: { passkey: PasskeyData } = {
@@ -132,7 +129,9 @@ export default function PasskeyRegistration() {
           setError(err.message);
         }
       } else {
-        setError(err instanceof Error ? err.message : "Failed to create passkey");
+        setError(
+          err instanceof Error ? err.message : "Failed to create passkey"
+        );
       }
     } finally {
       setLoading(false);
@@ -160,25 +159,37 @@ export default function PasskeyRegistration() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error?.message || `HTTP ${response.status}`);
+        throw new Error(
+          errorData.message ||
+            errorData.error?.message ||
+            `HTTP ${response.status}`
+        );
       }
 
       const data = await response.json();
-      console.log("✅ Full Prepare API response:", JSON.stringify(data, null, 2));
-      
+      console.log(
+        "✅ Full Prepare API response:",
+        JSON.stringify(data, null, 2)
+      );
+
       // Handle different response structures - API might wrap the response
       const prepareData = data.data || data;
-      
+
       // Log the actual payloadId we're getting
       console.log("📝 payloadId:", prepareData.payloadId);
-      console.log("📝 payloadToSign:", prepareData.payloadToSign?.substring(0, 100) + "...");
-      
+      console.log(
+        "📝 payloadToSign:",
+        prepareData.payloadToSign?.substring(0, 100) + "..."
+      );
+
       setPrepareResponse(prepareData);
       setStep("sign");
       console.log("✅ Prepare response set:", prepareData);
     } catch (err) {
       console.error("❌ Prepare error:", err);
-      setError(err instanceof Error ? err.message : "Failed to prepare registration");
+      setError(
+        err instanceof Error ? err.message : "Failed to prepare registration"
+      );
     } finally {
       setLoading(false);
     }
@@ -222,7 +233,10 @@ export default function PasskeyRegistration() {
       signature: signatureData.signature,
     };
 
-    console.log("🚀 Submit Request Body:", JSON.stringify(requestBody, null, 2));
+    console.log(
+      "🚀 Submit Request Body:",
+      JSON.stringify(requestBody, null, 2)
+    );
 
     try {
       const response = await fetch(
@@ -248,7 +262,9 @@ export default function PasskeyRegistration() {
       console.log("✅ Registration complete:", data);
     } catch (err) {
       console.error("❌ Submit error:", err);
-      setError(err instanceof Error ? err.message : "Failed to submit registration");
+      setError(
+        err instanceof Error ? err.message : "Failed to submit registration"
+      );
     } finally {
       setLoading(false);
     }
@@ -256,7 +272,7 @@ export default function PasskeyRegistration() {
 
   // Reset to start over
   const reset = () => {
-    setStep("config");
+    setStep("create");
     setPasskeyData(null);
     setPrepareResponse(null);
     setSignatureData(null);
@@ -268,23 +284,31 @@ export default function PasskeyRegistration() {
     <div className="space-y-6">
       {/* Progress Steps */}
       <div className="flex items-center justify-between mb-8">
-        {["config", "create", "prepare", "sign", "submit", "complete"].map((s, i) => (
+        {["create", "prepare", "sign", "submit", "complete"].map((s, i) => (
           <div key={s} className="flex items-center">
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
                 step === s
                   ? "bg-indigo-600 text-white"
-                  : ["config", "create", "prepare", "sign", "submit", "complete"].indexOf(step) > i
+                  : ["create", "prepare", "sign", "submit", "complete"].indexOf(
+                      step
+                    ) > i
                   ? "bg-emerald-500 text-white"
                   : "bg-zinc-700 text-zinc-400"
               }`}
             >
-              {["config", "create", "prepare", "sign", "submit", "complete"].indexOf(step) > i ? "✓" : i + 1}
+              {["create", "prepare", "sign", "submit", "complete"].indexOf(
+                step
+              ) > i
+                ? "✓"
+                : i + 1}
             </div>
-            {i < 5 && (
+            {i < 4 && (
               <div
                 className={`w-12 h-1 mx-1 ${
-                  ["config", "create", "prepare", "sign", "submit", "complete"].indexOf(step) > i
+                  ["create", "prepare", "sign", "submit", "complete"].indexOf(
+                    step
+                  ) > i
                     ? "bg-emerald-500"
                     : "bg-zinc-700"
                 }`}
@@ -301,90 +325,15 @@ export default function PasskeyRegistration() {
         </div>
       )}
 
-      {/* Step 0: Configuration */}
-      {step === "config" && (
-        <div className="space-y-4 p-6 bg-zinc-800/50 rounded-xl border border-zinc-700">
-          <h2 className="text-xl font-semibold text-zinc-100">Configuration</h2>
-          <p className="text-zinc-400 text-sm">Enter your API credentials from Postman setup</p>
-
-          <div className="grid gap-4">
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">API URL</label>
-              <input
-                type="text"
-                value={config.apiUrl}
-                onChange={(e) => setConfig({ ...config, apiUrl: e.target.value })}
-                placeholder="API URL"
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">API Token (x-api-token)</label>
-              <input
-                type="password"
-                value={config.apiToken}
-                onChange={(e) => setConfig({ ...config, apiToken: e.target.value })}
-                placeholder="Your API token"
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">Entity ID</label>
-              <input
-                type="text"
-                value={config.entityId}
-                onChange={(e) => setConfig({ ...config, entityId: e.target.value })}
-                placeholder="Your entity ID"
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">
-                API Public Key (66-char hex, compressed)
-              </label>
-              <input
-                type="text"
-                value={config.apiPublicKey}
-                onChange={(e) => setConfig({ ...config, apiPublicKey: e.target.value })}
-                placeholder="02 or 03 + 64 hex chars"
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 font-mono text-sm focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-zinc-300 mb-1">
-                API Private Key (64-char hex)
-              </label>
-              <input
-                type="password"
-                value={config.apiPrivateKey}
-                onChange={(e) => setConfig({ ...config, apiPrivateKey: e.target.value })}
-                placeholder="64 hex characters"
-                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-zinc-100 font-mono text-sm focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={() => setStep("create")}
-            disabled={!config.apiUrl || !config.apiToken || !config.entityId || !config.apiPrivateKey || !config.apiPublicKey}
-            className="w-full mt-4 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:bg-zinc-600 disabled:cursor-not-allowed transition-colors"
-          >
-            Continue →
-          </button>
-        </div>
-      )}
-
       {/* Step 1: Create Passkey */}
       {step === "create" && (
         <div className="space-y-4 p-6 bg-zinc-800/50 rounded-xl border border-zinc-700">
-          <h2 className="text-xl font-semibold text-zinc-100">Step 1: Create Passkey</h2>
+          <h2 className="text-xl font-semibold text-zinc-100">
+            Step 1: Create Passkey
+          </h2>
           <p className="text-zinc-400 text-sm">
-            Click the button below to create a new passkey using your device's authenticator
-            (Touch ID, Face ID, Windows Hello, etc.)
+            Click the button below to create a new passkey using your device's
+            authenticator (Touch ID, Face ID, Windows Hello, etc.)
           </p>
 
           <button
@@ -407,9 +356,12 @@ export default function PasskeyRegistration() {
       {/* Step 2: Prepare Registration */}
       {step === "prepare" && passkeyData && (
         <div className="space-y-4 p-6 bg-zinc-800/50 rounded-xl border border-zinc-700">
-          <h2 className="text-xl font-semibold text-zinc-100">Step 2: Prepare Registration</h2>
+          <h2 className="text-xl font-semibold text-zinc-100">
+            Step 2: Prepare Registration
+          </h2>
           <p className="text-zinc-400 text-sm">
-            Passkey created! Now sending to API to prepare the registration challenge.
+            Passkey created! Now sending to API to prepare the registration
+            challenge.
           </p>
 
           <div className="bg-zinc-900 p-4 rounded-lg overflow-auto max-h-48">
@@ -438,14 +390,18 @@ export default function PasskeyRegistration() {
       {/* Step 3: Sign Payload */}
       {step === "sign" && prepareResponse && (
         <div className="space-y-4 p-6 bg-zinc-800/50 rounded-xl border border-zinc-700">
-          <h2 className="text-xl font-semibold text-zinc-100">Step 3: Sign Payload</h2>
+          <h2 className="text-xl font-semibold text-zinc-100">
+            Step 3: Sign Payload
+          </h2>
           <p className="text-zinc-400 text-sm">
             Signing the payload with your API key (ECDSA P-256).
           </p>
 
           {/* Debug: Show full prepare response */}
           <div className="bg-yellow-900/30 p-3 rounded-lg border border-yellow-600">
-            <p className="text-xs text-yellow-400 mb-2">Debug - Full Prepare Response:</p>
+            <p className="text-xs text-yellow-400 mb-2">
+              Debug - Full Prepare Response:
+            </p>
             <pre className="text-xs text-yellow-200 overflow-auto max-h-32">
               {JSON.stringify(prepareResponse, null, 2)}
             </pre>
@@ -454,18 +410,24 @@ export default function PasskeyRegistration() {
           <div className="space-y-2">
             <div className="text-sm text-zinc-400">
               <strong>Payload ID:</strong>{" "}
-              <code className="bg-zinc-900 px-2 py-1 rounded">{prepareResponse.payloadId || "⚠️ MISSING"}</code>
+              <code className="bg-zinc-900 px-2 py-1 rounded">
+                {prepareResponse.payloadId || "⚠️ MISSING"}
+              </code>
             </div>
             <div className="text-sm text-zinc-400">
               <strong>RP ID:</strong>{" "}
-              <code className="bg-zinc-900 px-2 py-1 rounded">{prepareResponse.rpId || "N/A"}</code>
+              <code className="bg-zinc-900 px-2 py-1 rounded">
+                {prepareResponse.rpId || "N/A"}
+              </code>
             </div>
           </div>
 
           <div className="bg-zinc-900 p-4 rounded-lg overflow-auto max-h-32">
             <p className="text-xs text-zinc-500 mb-1">Payload to Sign:</p>
             <pre className="text-xs text-zinc-300 break-all">
-              {prepareResponse.payloadToSign ? prepareResponse.payloadToSign.substring(0, 200) + "..." : "⚠️ No payload"}
+              {prepareResponse.payloadToSign
+                ? prepareResponse.payloadToSign.substring(0, 200) + "..."
+                : "⚠️ No payload"}
             </pre>
           </div>
 
@@ -489,19 +451,27 @@ export default function PasskeyRegistration() {
       {/* Step 4: Submit Registration */}
       {step === "submit" && signatureData && prepareResponse && (
         <div className="space-y-4 p-6 bg-zinc-800/50 rounded-xl border border-zinc-700">
-          <h2 className="text-xl font-semibold text-zinc-100">Step 4: Submit Registration</h2>
+          <h2 className="text-xl font-semibold text-zinc-100">
+            Step 4: Submit Registration
+          </h2>
           <p className="text-zinc-400 text-sm">
             Payload signed! Submitting to complete passkey registration.
           </p>
 
           {/* Debug: Show what we're sending */}
           <div className="bg-yellow-900/30 p-3 rounded-lg border border-yellow-600">
-            <p className="text-xs text-yellow-400 mb-2">Debug - Request Body to Send:</p>
+            <p className="text-xs text-yellow-400 mb-2">
+              Debug - Request Body to Send:
+            </p>
             <pre className="text-xs text-yellow-200 overflow-auto max-h-32">
-              {JSON.stringify({
-                payloadId: prepareResponse.payloadId,
-                signature: signatureData.signature?.substring(0, 50) + "..."
-              }, null, 2)}
+              {JSON.stringify(
+                {
+                  payloadId: prepareResponse.payloadId,
+                  signature: signatureData.signature?.substring(0, 50) + "...",
+                },
+                null,
+                2
+              )}
             </pre>
           </div>
 
@@ -532,8 +502,12 @@ export default function PasskeyRegistration() {
       {/* Complete */}
       {step === "complete" && result && (
         <div className="space-y-4 p-6 bg-emerald-900/30 rounded-xl border border-emerald-500">
-          <h2 className="text-xl font-semibold text-emerald-300">✅ Passkey Registered!</h2>
-          <p className="text-zinc-300">Your passkey has been successfully registered.</p>
+          <h2 className="text-xl font-semibold text-emerald-300">
+            ✅ Passkey Registered!
+          </h2>
+          <p className="text-zinc-300">
+            Your passkey has been successfully registered.
+          </p>
 
           <button
             onClick={reset}
@@ -545,10 +519,16 @@ export default function PasskeyRegistration() {
       )}
 
       {/* Back Button */}
-      {step !== "config" && step !== "complete" && (
+      {step !== "create" && step !== "complete" && (
         <button
           onClick={() => {
-            const steps: Step[] = ["config", "create", "prepare", "sign", "submit", "complete"];
+            const steps: Step[] = [
+              "create",
+              "prepare",
+              "sign",
+              "submit",
+              "complete",
+            ];
             const currentIndex = steps.indexOf(step);
             if (currentIndex > 0) {
               setStep(steps[currentIndex - 1]);
@@ -562,4 +542,3 @@ export default function PasskeyRegistration() {
     </div>
   );
 }
-
