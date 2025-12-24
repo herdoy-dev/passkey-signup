@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signPayloadWithApiKey, toBase64UrlBytes } from "@/lib/crypto";
+import apiClient from "@/lib/api-client";
 
 interface PasskeyData {
   authenticatorName: string;
@@ -15,8 +16,6 @@ interface PasskeyData {
 }
 
 const config = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || "",
-  apiToken: process.env.NEXT_PUBLIC_API_TOKEN || "",
   entityId: process.env.NEXT_PUBLIC_ENTITY_ID || "",
   apiPrivateKey: process.env.NEXT_PUBLIC_API_PRIVATE_KEY || "",
   apiPublicKey: process.env.NEXT_PUBLIC_API_PUBLIC_KEY || "",
@@ -69,20 +68,11 @@ export default function PasskeyRegistration() {
       };
 
       // Prepare
-      const prepareRes = await fetch(
-        `${config.apiUrl}/api/v1/wallets/${config.entityId}/prepare-passkey-registration`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-token": config.apiToken },
-          body: JSON.stringify(passkeyData),
-        }
+      const prepareRes = await apiClient.post(
+        `/api/v1/wallets/${config.entityId}/prepare-passkey-registration`,
+        passkeyData
       );
-      if (!prepareRes.ok) {
-        const err = await prepareRes.json();
-        throw new Error(err.message || err.error?.message || `HTTP ${prepareRes.status}`);
-      }
-      const prepareJson = await prepareRes.json();
-      const prepareData = prepareJson.data || prepareJson;
+      const prepareData = prepareRes.data.data || prepareRes.data;
 
       // Sign
       const signData = await signPayloadWithApiKey(
@@ -92,18 +82,10 @@ export default function PasskeyRegistration() {
       );
 
       // Submit
-      const submitRes = await fetch(
-        `${config.apiUrl}/api/v1/wallets/submit-passkey-registration`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-token": config.apiToken },
-          body: JSON.stringify({ payloadId: prepareData.payloadId, signature: signData.signature }),
-        }
-      );
-      if (!submitRes.ok) {
-        const err = await submitRes.json();
-        throw new Error(err.message || `HTTP ${submitRes.status}`);
-      }
+      await apiClient.post("/api/v1/wallets/submit-passkey-registration", {
+        payloadId: prepareData.payloadId,
+        signature: signData.signature,
+      });
 
       // Success - show toast
       setShowToast(true);
@@ -117,6 +99,9 @@ export default function PasskeyRegistration() {
         } else {
           setError(err.message);
         }
+      } else if (err && typeof err === "object" && "response" in err) {
+        const axiosErr = err as { response?: { data?: { message?: string; error?: { message?: string } } } };
+        setError(axiosErr.response?.data?.message || axiosErr.response?.data?.error?.message || "API error");
       } else {
         setError(err instanceof Error ? err.message : "Failed to register passkey");
       }
@@ -148,9 +133,8 @@ export default function PasskeyRegistration() {
         )}
       </button>
 
-      {/* Toast Notification */}
       {showToast && (
-        <div className="fixed bottom-6 right-6 px-6 py-3 bg-emerald-600 text-white rounded-lg shadow-lg animate-fade-in">
+        <div className="fixed bottom-6 right-6 px-6 py-3 bg-emerald-600 text-white rounded-lg shadow-lg">
           ✅ Passkey registered successfully!
         </div>
       )}
